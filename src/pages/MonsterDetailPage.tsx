@@ -26,8 +26,18 @@ const MonsterDetailPage: React.FC = () => {
           return;
         }
 
+        console.log('Fetching all monsters...');
         const allMonsters = await getMonsters();
+        console.log('All monsters:', allMonsters);
+
+        if (!Array.isArray(allMonsters) || allMonsters.length === 0) {
+          setError('无法获取妖怪列表');
+          setLoading(false);
+          return;
+        }
+
         const currentIndex = allMonsters.findIndex((m: { _id: string }) => m._id === id);
+        console.log('Current monster index:', currentIndex);
         
         if (currentIndex === -1) {
           setError('未找到该妖怪');
@@ -35,24 +45,25 @@ const MonsterDetailPage: React.FC = () => {
           return;
         }
         
-        if (currentIndex > 0) {
-          setPrevMonsterId(allMonsters[currentIndex - 1]._id);
-        } else {
-          setPrevMonsterId(null);
-        }
-        
-        if (currentIndex < allMonsters.length - 1) {
-          setNextMonsterId(allMonsters[currentIndex + 1]._id);
-        } else {
-          setNextMonsterId(null);
+        // 设置前后导航
+        setPrevMonsterId(currentIndex > 0 ? allMonsters[currentIndex - 1]._id : null);
+        setNextMonsterId(currentIndex < allMonsters.length - 1 ? allMonsters[currentIndex + 1]._id : null);
+
+        console.log('Fetching monster details...');
+        const data = await getMonsterById(id);
+        console.log('Monster details:', data);
+
+        if (!data) {
+          setError('无法获取妖怪详情');
+          setLoading(false);
+          return;
         }
 
-        const data = await getMonsterById(id);
         setMonster(data);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch monster:', err);
-        setError('获取数据失败');
+        setError('获取数据失败，请稍后重试');
       } finally {
         setLoading(false);
       }

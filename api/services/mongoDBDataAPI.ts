@@ -9,18 +9,24 @@ const dataApiClient = axios.create({
   }
 });
 
-const DATABASE = "monster-encyclopedia";
+const DATABASE = "myFirstDatabase";
+const COLLECTION = "monsters01";
 
 export const findMonsters = async (query = {}, options = {}) => {
   try {
-    const response = await dataApiClient.post('/action/find', {
-      collection: "monsters",
-      database: DATABASE,
-      dataSource: "ChineseMonsters",
-      filter: query,
-      ...options
-    });
-    return response.data.documents;
+    const collections = Array.from({ length: 11 }, (_, i) => `monsters${String(i + 1).padStart(2, '0')}`);
+    const allResults = await Promise.all(collections.map(async (collection) => {
+      const response = await dataApiClient.post('/action/find', {
+        collection,
+        database: DATABASE,
+        dataSource: "ChineseMonsters",
+        filter: query,
+        ...options
+      });
+      return response.data.documents || [];
+    }));
+    
+    return allResults.flat();
   } catch (error) {
     console.error('MongoDB Data API Error:', error);
     throw error;
@@ -29,13 +35,22 @@ export const findMonsters = async (query = {}, options = {}) => {
 
 export const findMonsterById = async (id) => {
   try {
-    const response = await dataApiClient.post('/action/findOne', {
-      collection: "monsters",
-      database: DATABASE,
-      dataSource: "ChineseMonsters",
-      filter: { _id: { $oid: id } }
-    });
-    return response.data.document;
+    const collections = Array.from({ length: 11 }, (_, i) => `monsters${String(i + 1).padStart(2, '0')}`);
+    
+    for (const collection of collections) {
+      const response = await dataApiClient.post('/action/findOne', {
+        collection,
+        database: DATABASE,
+        dataSource: "ChineseMonsters",
+        filter: { _id: { $oid: id } }
+      });
+      
+      if (response.data.document) {
+        return response.data.document;
+      }
+    }
+    
+    return null;
   } catch (error) {
     console.error('MongoDB Data API Error:', error);
     throw error;
@@ -45,7 +60,7 @@ export const findMonsterById = async (id) => {
 export const createMonster = async (monsterData) => {
   try {
     const response = await dataApiClient.post('/action/insertOne', {
-      collection: "monsters",
+      collection: COLLECTION,
       database: DATABASE,
       dataSource: "ChineseMonsters",
       document: monsterData
@@ -60,7 +75,7 @@ export const createMonster = async (monsterData) => {
 export const updateMonster = async (id, monsterData) => {
   try {
     const response = await dataApiClient.post('/action/updateOne', {
-      collection: "monsters",
+      collection: COLLECTION,
       database: DATABASE,
       dataSource: "ChineseMonsters",
       filter: { _id: { $oid: id } },
@@ -76,7 +91,7 @@ export const updateMonster = async (id, monsterData) => {
 export const deleteMonster = async (id) => {
   try {
     const response = await dataApiClient.post('/action/deleteOne', {
-      collection: "monsters",
+      collection: COLLECTION,
       database: DATABASE,
       dataSource: "ChineseMonsters",
       filter: { _id: { $oid: id } }

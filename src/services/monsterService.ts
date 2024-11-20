@@ -13,17 +13,22 @@ export const getMonsters = async (query: MonsterQuery = {}) => {
   try {
     const { data } = await axios.get(`${API_BASE_URL}/monsters`, { 
       params: query,
-      // 添加错误处理配置
       validateStatus: (status) => status < 500
     });
-    return data.monsters || [];
+    
+    if (!data || !data.monsters) {
+      console.error('Invalid response format:', data);
+      return [];
+    }
+    
+    return data.monsters;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('API Error:', error.response?.data || error.message);
     } else {
       console.error('Error fetching monsters:', error);
     }
-    return []; // 返回空数组而不是抛出错误
+    return [];
   }
 };
 
@@ -32,10 +37,18 @@ export const getMonsterById = async (id: string) => {
     const { data } = await axios.get(`${API_BASE_URL}/monsters/${id}`, {
       validateStatus: (status) => status < 500
     });
+    
+    if (!data) {
+      throw new Error('Monster not found');
+    }
+    
     return data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('API Error:', error.response?.data || error.message);
+      if (error.response?.status === 404) {
+        return null;
+      }
     } else {
       console.error('Error fetching monster:', error);
     }
