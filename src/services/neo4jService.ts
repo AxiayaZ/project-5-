@@ -1,21 +1,44 @@
 import neo4j, { Driver, Session } from 'neo4j-driver';
 
 class Neo4jService {
-  private driver: Driver;
+  private driver: Driver | null = null;
 
   constructor() {
-    // 从环境变量获取连接信息
-    const uri = import.meta.env.VITE_NEO4J_URI;
-    const user = import.meta.env.VITE_NEO4J_USER;
-    const password = import.meta.env.VITE_NEO4J_PASSWORD;
+    this.initializeDriver();
+  }
 
-    this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+  private initializeDriver() {
+    try {
+      const uri = import.meta.env.VITE_NEO4J_URI;
+      const user = import.meta.env.VITE_NEO4J_USER;
+      const password = import.meta.env.VITE_NEO4J_PASSWORD;
+
+      if (!uri || !user || !password) {
+        console.error('Neo4j connection information is missing');
+        return;
+      }
+
+      this.driver = neo4j.driver(
+        uri,
+        neo4j.auth.basic(user, password),
+        {
+          maxConnectionLifetime: 3 * 60 * 60 * 1000, // 3 hours
+          maxConnectionPoolSize: 50,
+          connectionAcquisitionTimeout: 30000 // 30 seconds
+        }
+      );
+    } catch (error) {
+      console.error('Failed to create Neo4j driver:', error);
+    }
   }
 
   async getBookKnowledgeGraph(bookTitle: string) {
+    if (!this.driver) {
+      throw new Error('Neo4j driver is not initialized');
+    }
+
     const session: Session = this.driver.session();
     try {
-      // 修改查询语句以匹配你的数据结构
       const result = await session.run(`
         MATCH (book:Book {title: $bookTitle})
         MATCH (n)-[r]-(m)
@@ -23,7 +46,6 @@ class Neo4jService {
         RETURN DISTINCT n, r, m
       `, { bookTitle });
 
-      // 转换查询结果为前端需要的格式
       const nodes = new Map();
       const links: any[] = [];
 
@@ -32,12 +54,11 @@ class Neo4jService {
         const target = record.get('m');
         const relationship = record.get('r');
 
-        // 添加节点（注意：根据实际的节点属性进行调整）
         if (!nodes.has(source.elementId)) {
           nodes.set(source.elementId, {
             id: source.elementId,
             name: source.properties.name || source.properties.title,
-            type: source.labels[0], // 使用节点的标签作为类型
+            type: source.labels[0],
             ...source.properties
           });
         }
@@ -45,12 +66,11 @@ class Neo4jService {
           nodes.set(target.elementId, {
             id: target.elementId,
             name: target.properties.name || target.properties.title,
-            type: target.labels[0], // 使用节点的标签作为类型
+            type: target.labels[0],
             ...target.properties
           });
         }
 
-        // 添加关系
         links.push({
           source: source.elementId,
           target: target.elementId,
@@ -71,8 +91,11 @@ class Neo4jService {
     }
   }
 
-  // 添加一个新方法来获取所有可用的书籍
   async getAvailableBooks() {
+    if (!this.driver) {
+      throw new Error('Neo4j driver is not initialized');
+    }
+
     const session: Session = this.driver.session();
     try {
       const result = await session.run(`
@@ -94,7 +117,10 @@ class Neo4jService {
   }
 
   async close() {
-    await this.driver.close();
+    if (this.driver) {
+      await this.driver.close();
+      this.driver = null;
+    }
   }
 }
 

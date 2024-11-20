@@ -61,7 +61,7 @@ const KnowledgeGraphPage: React.FC = () => {
           setGraphData(data);
         } catch (error) {
           console.error('获取知识图谱数据失败:', error);
-          setError('连接数据库失败，请稍后重试');
+          setError(error instanceof Error ? error.message : '连接数据库失败，请稍后重试');
         } finally {
           setLoading(false);
         }
